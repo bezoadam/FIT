@@ -1,0 +1,46 @@
+.TH DHCP-STATS 1
+.SH NAME
+dhcp-stats \- Monitoring of DHCP communication
+.SH SYNOPSIS
+.B ./dhcp-stats
+.B -i
+.I <interface>
+.I <ip-prefix>  
+[ \fI<ip-prefix>\fR [ ... ] ]
+.SH DESCRIPTION
+.B dhcp-stats 
+is used for making statistics of DHCP communication
+on DHCP server. It's based on packet sniffing at chosen network interface
+using pcapy module. DHCP packets are filtered by specific
+source and destination port. Each of these sniffed packets is analyzed
+and based on DHCP type (ACK or RELEASE) is processed later.
+.PP
+.SH OPTIONS
+.TP
+.B -i
+.I <interface>
+.BR \fI<ip-prefix>\fR
+Network IP adress, for which we are making statistics. Minimum provided
+IP adress is one.
+.TP
+.B -f
+List of active interfaces to sniff.
+.SH EXAMPLES
+.B sudo ./dhcp-stats -i en4
+.I 192.168.1.0/24 172.16.32.0/24 192.168.0.0/22 
+.PP
+This example shows how application works. Application will create 
+statistics of utilization for this three ip addresses with specific
+prefix. Entered prefixes can overlap each other and entered 
+ip address must be network address.
+.SH BUGS
+.PP 
+You need to specify interface to sniff (use 
+.B -f
+to print list of active interfaces). Also recommended to start application with
+.B sudo
+.
+
+.SH AUTHOR
+Adam Bezak (xbezak01)
+

@@ -1,0 +1,8 @@
+ISA - Síťové aplikace a správa sítí
+Monitorování DHCP komunikace
+2016/2017
+Adam Bezák - xbezak01
+
+Potrebné balíčky na doinštalovanie (rieší makefile):
+epel-release
+pcapy
