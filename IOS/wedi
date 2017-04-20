@@ -1,0 +1,349 @@
+#!/bin/sh
+
+# IOS - Projekt 1, skript wrapper
+# Autor: Adam Bezák (xbezak01@stud.fit.vutbr.cz)
+# 
+# Popis skriptu: Skript wrapper spusta textovy editor. Skritp si pamata, ktore subory boli v akom adresari prostrednictvom
+# daneho skriptu editovane.
+
+opt_m=False
+opt_l=False
+opt_b=False
+opt_a=False
+opt_dir=False
+opt_file=False
+opt_def=False
+
+#otvorenie suboru
+open_file() {
+	if echo "$1" | egrep -q ^-. ; then
+		echo "Nespravny nazov suboru" 1>&2
+		exit 1
+	elif [ "$1" ]; then
+		if [ ! -z "$EDITOR" ]; then
+			$EDITOR "$1"
+		elif [ ! -z "$VISUAL" ]; then
+			$VISUAL "$1"
+		else 
+			exit 1
+		fi
+	fi
+}
+#otvorenie adresaru
+open_dir() {
+	if [ $1 == "true" ]; then
+		pwd_aktual=$(realpath)
+	else 
+		cd "$1"
+		pwd_aktual=$(realpath)
+		cd "-" > /dev/null
+	fi
+		name=$(cat $WEDI_RC | grep :$pwd_aktual: | cut -d ":" -f 3 | awk '{print NR" "$0}' | sort -k1 -n -r | sed 's/^[^ ]* //g')
+		for i in $name; do
+			if [ -f "$i" ]; then
+				open_file "$i"
+				file_done=True
+				file="$i"
+				break
+			fi
+		done
+		log_file "$*" "$1" "$2" "$3" "$file"
+		if [ -z "$file_done" ]; then
+			echo "V zadanom adresari nebol este editovany ziadny subor" 1>&2
+			exit 1
+		fi
+}
+#argument -m
+open_dir_m() {
+	if [ -z "$2" ]; then
+		pwd_aktual=$(realpath)
+	else
+		cd "$2"
+		pwd_aktual=$(realpath)
+		cd "-" > /dev/null
+	fi
+		name=$(grep :$pwd_aktual: < "$WEDI_RC" | cut -d ":" -f 3 | sort | grep -e '^$' -v)
+		name=$(echo "$name" | tr ' ' '\n' | sort | uniq -c | sort -nr)
+		var=$(echo "$name" | awk '{print $NF}')
+		for i in $var; do
+			if [ -f "$i" ]; then
+				open_file "$i"
+				file_done=True
+				file="$i"
+				break
+			fi
+		done
+		log_file "$*" "$1" "$2" "$3" "$file"
+		if [ -z "$file_done" ]; then
+		echo "Ziadny subor nevyhovuje" 1>&2
+		exit 1
+		fi
+}
+#argument -l
+open_dir_l() { 
+	if [ -z "$2" ]; then
+		pwd_aktual=$(realpath)
+	else
+		cd "$2"
+		pwd_aktual=$(realpath)
+		cd "-" > /dev/null
+	fi
+		name=$(grep :$pwd_aktual: < "$WEDI_RC" | cut -d ":" -f 3 | sort -u | grep -e '^$' -v)
+		for i in $name; do
+			if [ -e "$i" ]; then
+				echo "$i"
+				file=True
+			fi
+		done
+}
+#argument -a
+open_dir_a() {
+	date_arg="$2"
+	date_arg_w=$(echo $date_arg | tr -d -)
+	dir="$3"
+	if [ -z "$dir" ]; then
+		pwd_aktual=$(realpath)
+	else
+		cd "$3"
+		pwd_aktual=$(realpath)
+		cd "-" > /dev/null
+	fi
+		name=$(grep :$pwd_aktual: < "$WEDI_RC")
+		date_cut=$(echo "$name" | cut -d ":" -f 1 | tr -d -)
+		for i in $date_cut; do
+			if [ "$date_arg_w" -le "$i" ]; then
+					date_ar=$(echo "$i" | sed -e "s/\(....\)\(..\)\(..\)/\1-\2-\3/")
+					date_var=$(echo "$name" | grep $date_ar: | cut -d ":" -f 3 | sort -u)
+						for x in $date_var; do
+							if [ -e "$x" ]; then
+								files="$files $x"
+							fi
+						done
+			fi
+		done
+		files=$(echo "$files" | xargs -n1 | sort -u | xargs)
+		for i in $files; do
+			echo "$i"
+		done
+}
+#argument -b
+open_dir_b() {
+	date_arg="$2"
+	date_arg_w=$(echo $date_arg | tr -d -)
+	dir="$3"
+	if [ -z "$dir" ]; then
+		pwd_aktual=$(realpath)
+	else 
+		cd "$3"
+		pwd_aktual=$(realpath)
+		cd "-" > /dev/null
+	fi
+		name=$(grep :$pwd_aktual: < "$WEDI_RC")
+		date_cut=$(echo "$name" | cut -d ":" -f 1 | tr -d -)
+		for i in $date_cut; do
+			if [ "$date_arg_w" -ge "$i" ]; then
+					date_ar=$(echo "$i" | sed -e "s/\(....\)\(..\)\(..\)/\1-\2-\3/")
+					date_var=$(echo "$name" | grep $date_ar: | cut -d ":" -f 3 | sort -u)
+						for x in $date_var; do
+							if [ -e "$x" ]; then
+								files="$files $x"
+							fi
+						done
+			fi
+		done
+		files=$(echo "$files" | xargs -n1 | sort -u | xargs)
+		for i in $files; do
+			echo "$i"
+		done
+}
+#logovaci subor
+log_file() {
+	#dostanem vsetky argumenty a musim cutnut treti ak to je priecinok tak ten si zapisem do log
+	#wedi -a 9999-05-05 adr
+	#	  $2 	$3 		$4 
+	pwd_base=$(realpath)
+	DATE=`date +%Y-%m-%d`
+	if [ -d "$2" ]; then
+		cd "$2"
+		dir=$(realpath)
+		cd "-" > /dev/null
+	elif [ -d "$3" ]; then
+		cd "$3"
+		dir=$(realpath)
+		cd "-" > /dev/null
+	elif [ -d "$4" ]; then
+		cd "$4"
+		dir=$(realpath)
+		cd "-" > /dev/null
+	elif [ -e "$2" ]; then
+		if echo $2 | grep -Eq '*"/"*' ; then
+			PATHFILE="$2"
+			DIRECTORY=${PATHFILE%/*}
+			cd "$DIRECTORY"
+			dir=$(realpath)
+			echo "$dir"
+			FILE=${PATHFILE##*/}
+			dir_true=True
+			file_base="$FILE"
+		else
+			dir=$pwd_base
+			file_base="$2"
+		fi
+	elif [ ! -e "$2" ]; then
+		if echo $2 | grep -Eq '*"/"*' ; then
+			PATHFILE="$2"
+			DIRECTORY=${PATHFILE%/*}
+			cd "$DIRECTORY"
+			dir=$(realpath)
+			echo "$dir"
+			FILE=${PATHFILE##*/}
+			dir_true=True
+			file_base="$FILE"
+		else
+			dir=$pwd_base
+			if [ ! "$2" == "-l" ] && [ ! "$2" == "-a" ] && [ ! "$2" == "-b" ]; then
+				file_base="$2"
+			fi
+		fi
+	elif [ -z "$4" ]; then
+		dir="$pwd_base"
+	else
+		dir="$pwd_base"
+	fi
+	if [ ! -z "$5" ]; then
+		file_base="$5"
+	fi
+	echo -n $DATE >> "$WEDI_RC"
+	echo -n ":" >> "$WEDI_RC"
+	if [ ! -z "$dir" ]; then
+		echo -n $dir >> "$WEDI_RC"
+	fi
+	echo -n ":" >> "$WEDI_RC"
+	if [ ! -z "$file_base" ]; then
+		echo -n $file_base >> "$WEDI_RC"
+	fi
+	echo -n ":" >> "$WEDI_RC"
+	echo "$1" >> "$WEDI_RC"
+}
+type realpath > "/dev/null" 2>&1
+if [ "$?" != "0" ]; then
+	echo "neexistuje realpath" 1>&2
+	exit 1
+fi
+if [ -z "$WEDI_RC" ]; then
+	echo "WEDI_RC nie je nastavene" 2>&1
+	exit 1
+elif [ ! -f "$WEDI_RC" ]; then
+	touch "$WEDI_RC"
+fi
+if [ "$#" == "0" ]; then
+	opt_def=True
+elif [ "$#" == "1" ]; then		#pocet arg = 1
+	if [ -d "$1" ]; then	#ak existuje priecinok na 1 argumente
+		opt_dir=True
+		dir_arg="$1"
+	elif [ "$1" == "-m" ]; then
+		opt_m=True
+	elif [ "$1" == "-l" ]; then
+		opt_l=True
+	elif [ -f "$1" ]; then  #ak existuje subor na 1 argumente
+		opt_file=True
+		PATHFILE="$1"
+		FILE=${PATHFILE##*/}
+		file_arg="$FILE"
+	elif [ ! -f "$1" ]; then
+		opt_file=True
+		PATHFILE="$1"
+		FILE=${PATHFILE##*/}
+		file_arg="$FILE"
+	else
+		echo "Zadal si nespravne argumenty" 1>&2
+		exit 1
+	fi
+elif [ "$#" == "2" ]; then 		#pocet arg = 2
+	if [ "$1" == "-m" ]; then	#ak prvy argument -m
+			if [ -d "$2" ]; then
+				opt_m=True
+				dir_arg="$2"
+			else
+				echo "Zadany priecinok neexistuje" 1>&2
+				exit 1
+			fi
+	elif [ "$1" == "-l" ]; then		#ak prvy argument -l
+			if [ -d "$2" ]; then
+				opt_l=True
+				dir_arg="$2"
+			else
+				echo "Zadany priecinok neexistuje" 1>&2
+				exit 1
+			fi
+	elif [ "$1" == "-b" ]; then		#ak prvy argument -b
+		opt_b=True
+		if echo $2 | grep -Eq '^[0-9]{4}-[0-1][0-9]-[0-3][0-9]$' ; then #regex na spravny format datumu
+			date="$2"
+		else 
+			echo "Zadal si zly format casu" 1>&2
+			exit 1
+		fi
+	elif [ "$1" == "-a" ]; then		#ak prvy argument -a
+		opt_a=True
+		if echo $2 | grep -Eq '^[0-9]{4}-[0-1][0-9]-[0-3][0-9]$' ; then
+			date="$2"
+		else 
+			echo "Zadal si zly format casu" 1>&2
+			exit 1
+		fi
+	elif  echo $1 | grep -Eq '^-.$' ; then	#sem by skript nemal ani nikdy dojst, pre istotu 
+		echo "Zle argumenty" 1>&2
+		exit 1
+	fi
+elif [ "$#" == "3" ]; then	#pocet arg = 3
+	if [ "$1" == "-b" ]; then	#ak prvy argument -b
+		if [ -d "$3" ]; then
+			opt_b=True
+			if echo $2 | grep -Eq '^[0-9]{4}-[0-1][0-9]-[0-3][0-9]$'; then
+				date="$2"
+			else 
+				echo "Zadal si zly format casu" 1>&2
+				exit 1
+			fi
+			dir_arg="$3"
+		fi
+	elif [ "$1" == "-a" ]; then		#ak prvy argument -a
+		if [ -d "$3" ]; then
+			opt_a=True
+			if echo $2 | grep -Eq '^[0-9]{4}-[0-1][0-9]-[0-3][0-9]$'; then
+				date="$2"
+			else 
+				echo "Zadal si zly format casu" 1>&2
+				exit 1
+			fi
+			dir_arg="$3"
+		fi
+	elif  echo $1 | grep -Eq '^-.$' ; then
+		echo "Zle argumenty" 1>&2
+		exit 1
+	fi
+fi
+#spracovanie vstupu
+if [ "$opt_file" = True ]; then
+	log_file "$*" "$1" "$2" "$3"
+	open_file "$file_arg"
+elif [ "$opt_dir" = True  ]; then
+	log_file "$*" "$1" "$2" "$3"
+	open_dir "$dir_arg"
+elif [ "$opt_l" = True ]; then
+	log_file "$*" "$1" "$2" "$3"
+	open_dir_l "$*" "$dir_arg"
+elif [ "$opt_def" = True ]; then
+	pwd_aktual="true"
+	open_dir "$pwd_aktual"
+elif [ "$opt_m" = True ]; then
+	open_dir_m "$*" "$dir_arg"
+elif [ "$opt_a" = True ]; then
+	log_file "$*" "$1" "$2" "$3"
+	open_dir_a "$*" "$date" "$dir_arg"
+elif [ "$opt_b" = True ]; then
+	log_file "$*" "$1" "$2" "$3"
+	open_dir_b "$*" "$date" "$dir_arg"
+fi
